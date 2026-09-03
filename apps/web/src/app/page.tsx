@@ -245,9 +245,12 @@ export default function Page() {
             </li>
           </ul>
 
-          <button className="w-full mt-6 bg-primary text-white py-3 rounded-lg font-medium hover:opacity-90 transition">
+          <Link
+            href="/auth#sign-up"
+            className={cn(buttonVariants({ size: "default" }), "w-full mt-6")}
+          >
             Get Started
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -283,9 +286,15 @@ export default function Page() {
             </li>
           </ul>
 
-          <button className="w-full mt-6 bg-white text-primary py-3 rounded-lg font-medium hover:bg-white/90 transition">
+          <Link
+            href="/auth#sign-up"
+            className={cn(
+              buttonVariants({ size: "default", variant: "secondary" }),
+              "w-full mt-6"
+            )}
+          >
             Start Free Trial
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -317,9 +326,12 @@ export default function Page() {
             </li>
           </ul>
 
-          <button className="w-full mt-6 bg-primary text-white py-3 rounded-lg font-medium hover:opacity-90 transition">
+          <Link
+            href="/auth#sign-up"
+            className={cn(buttonVariants({ size: "default" }), "w-full mt-6")}
+          >
             Contact Sales
-          </button>
+          </Link>
         </div>
       </div>
 

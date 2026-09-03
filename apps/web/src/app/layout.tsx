@@ -38,7 +38,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans antialiased">
         <Initializer expressUrl={config.express.url} />
-        <ClerkProvider>
+        <ClerkProvider publishableKey={config.clerk.publishableKey}>
           {children}
           <Toaster />
         </ClerkProvider>
