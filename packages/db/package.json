@@ -26,6 +26,6 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./browser": "./generated/prisma/browser.ts"
+    "./browser": "./src/browser.ts"
   }
 }
