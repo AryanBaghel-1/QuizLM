@@ -9,9 +9,18 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useClerk } from "@clerk/nextjs";
+import { useTheme } from "next-themes";
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 export default function SettingsPage() {
     const { signOut } = useClerk();
+    const { resolvedTheme, setTheme } = useTheme();
+    const mounted = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
+
     return (
         <AppLayout>
             <div className="max-w-4xl mx-auto space-y-8">
@@ -107,7 +116,11 @@ export default function SettingsPage() {
                             <p className="text-sm text-muted-foreground">Toggle dark theme for the dashboard.</p>
                         </div>
 
-                        <Switch />
+                        <Switch
+                            checked={mounted && resolvedTheme === "dark"}
+                            onCheckedChange={checked => setTheme(checked ? "dark" : "light")}
+                            aria-label="Toggle dark mode"
+                        />
                     </div>
                 </Card>
 
