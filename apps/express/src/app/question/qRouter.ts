@@ -1,12 +1,16 @@
-import { AuthError, InvalidInputError, NotFoundError } from "@/lib/errors";
+import { InvalidInputError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { generateEmbeddings, handleError, makeResponse, sendResponse } from "@/lib/utils";
-import { getAuth } from "@clerk/express";
 import { GoogleGenAI } from "@google/genai";
-import type { Level, Prisma } from "@repo/db";
+import type { Prisma } from "@repo/db";
 import { QuestionType, type QuestionMeta } from "@repo/db/browser";
 import { getConfig } from "@repo/shared/server";
-import { CreateQuestionRequestSchema, InferQuestionsSchema, ListQuestionsFilterSchema, type Pagination } from "@repo/shared/types";
+import {
+    CreateQuestionRequestSchema,
+    InferQuestionsSchema,
+    ListQuestionsFilterSchema,
+    type Pagination,
+} from "@repo/shared/types";
 import { aiJsonParse } from "ai-json-safe-parse";
 import { Router, type Request, type Response } from "express";
 import { fileTypeFromBuffer } from "file-type";
@@ -36,11 +40,9 @@ async function CreateQuestionController(req: Request, res: Response) {
                 }
             }
 
-            const questionEmbeddings = await generateEmbeddings(
-                questionTexts,
-                "RETRIEVAL_DOCUMENT"
-            );
-            const answerEmbeddings = answerTexts.length > 0 ? await generateEmbeddings(answerTexts, "SEMANTIC_SIMILARITY") : {};
+            const questionEmbeddings = await generateEmbeddings(questionTexts, "RETRIEVAL_DOCUMENT");
+            const answerEmbeddings =
+                answerTexts.length > 0 ? await generateEmbeddings(answerTexts, "SEMANTIC_SIMILARITY") : {};
             let answerIndex = 0;
 
             const values = data.questions
@@ -56,15 +58,11 @@ async function CreateQuestionController(req: Request, res: Response) {
 
                     const escapedQuestion = q.question.replace(/'/g, "''");
                     const escapedTopic = q.topic.replace(/'/g, "''");
-                    const escapedAnswer = q.answer
-                        ? q.answer.replace(/'/g, "''")
-                        : null;
+                    const escapedAnswer = q.answer ? q.answer.replace(/'/g, "''") : null;
 
                     const tagsArray =
                         q.tags && q.tags.length > 0
-                            ? `ARRAY[${q.tags
-                                .map((t) => `'${t.replace(/'/g, "''")}'`)
-                                .join(",")}]`
+                            ? `ARRAY[${q.tags.map(t => `'${t.replace(/'/g, "''")}'`).join(",")}]`
                             : `ARRAY[]::text[]`;
 
                     return `
@@ -77,20 +75,11 @@ async function CreateQuestionController(req: Request, res: Response) {
                     '${q.level}'::"Level",
                     ${tagsArray},
                     '${q.difficulty}'::"Difficulty",
-                    ${escapedAnswer
-                            ? `'${escapedAnswer}'`
-                            : "NULL"
-                        },
-                    ${q.imageUrl
-                            ? `'${q.imageUrl.replace(/'/g, "''")}'`
-                            : "NULL"
-                        },
+                    ${escapedAnswer ? `'${escapedAnswer}'` : "NULL"},
+                    ${q.imageUrl ? `'${q.imageUrl.replace(/'/g, "''")}'` : "NULL"},
                     ${data.public},
                     '[${questionEmbedding.join(",")}]'::vector,
-                    ${answerEmbedding
-                            ? `'[${answerEmbedding.join(",")}]'::vector`
-                            : "NULL"
-                        },
+                    ${answerEmbedding ? `'[${answerEmbedding.join(",")}]'::vector` : "NULL"},
                     NOW(),
                     NOW(),
                     '${req.userId}'
@@ -122,14 +111,7 @@ async function CreateQuestionController(req: Request, res: Response) {
             ${values}
         `);
 
-            sendResponse(
-                res,
-                makeResponse(
-                    true,
-                    201,
-                    "Questions created successfully"
-                )
-            );
+            sendResponse(res, makeResponse(true, 201, "Questions created successfully"));
         } catch (error) {
             handleError(res, error);
         }
@@ -143,11 +125,8 @@ async function GetQuestionByIdController(req: Request, res: Response) {
         const question = await prisma.questionMeta.findFirst({
             where: {
                 id,
-                OR: [
-                    { isPublic: true },
-                    { authorId: req.userId! }
-                ]
-            }
+                OR: [{ isPublic: true }, { authorId: req.userId! }],
+            },
         });
         if (!question) {
             throw new NotFoundError("Question not found");
@@ -164,10 +143,7 @@ async function ListQuestionsController(req: Request, res: Response) {
             ...req.query,
             page: req.query.page ? Number(req.query.page) : undefined,
             limit: req.query.limit ? Number(req.query.limit) : undefined,
-            public:
-                req.query.public !== undefined
-                    ? req.query.public === "true"
-                    : undefined,
+            public: req.query.public !== undefined ? req.query.public === "true" : undefined,
         });
 
         const whereClause: Prisma.QuestionMetaWhereInput = {};
@@ -202,10 +178,7 @@ async function ListQuestionsController(req: Request, res: Response) {
 
         // semantic search
         if (filters.search) {
-            const embeddings = await generateEmbeddings(
-                [filters.search],
-                "RETRIEVAL_DOCUMENT"
-            );
+            const embeddings = await generateEmbeddings([filters.search], "RETRIEVAL_DOCUMENT");
 
             const queryEmbedding = embeddings[filters.search];
 
@@ -215,39 +188,26 @@ async function ListQuestionsController(req: Request, res: Response) {
             const conditions: string[] = [];
 
             if (filters.subject) {
-                conditions.push(
-                    `"subject" = '${filters.subject}'::"Subject"`
-                );
+                conditions.push(`"subject" = '${filters.subject}'::"Subject"`);
             }
 
             if (filters.topic) {
-                conditions.push(
-                    `"topic" ILIKE '%${filters.topic.replace(/'/g, "''")}%'`
-                );
+                conditions.push(`"topic" ILIKE '%${filters.topic.replace(/'/g, "''")}%'`);
             }
 
             if (filters.difficulty) {
-                conditions.push(
-                    `"difficulty" = '${filters.difficulty}'::"Difficulty"`
-                );
+                conditions.push(`"difficulty" = '${filters.difficulty}'::"Difficulty"`);
             }
 
             if (filters.type) {
-                conditions.push(
-                    `"type" = '${filters.type}'::"QuestionType"`
-                );
+                conditions.push(`"type" = '${filters.type}'::"QuestionType"`);
             }
 
             if (filters.public !== undefined) {
-                conditions.push(
-                    `"isPublic" = ${filters.public}`
-                );
+                conditions.push(`"isPublic" = ${filters.public}`);
             }
 
-            const whereSQL =
-                conditions.length > 0
-                    ? `WHERE ${conditions.join(" AND ")}`
-                    : "";
+            const whereSQL = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
             const sortFieldMap: Record<string, string> = {
                 createdAt: `"createdAt"`,
@@ -255,8 +215,7 @@ async function ListQuestionsController(req: Request, res: Response) {
                 topic: `"topic"`,
             };
 
-            const sortField =
-                sortFieldMap[filters.sortBy] || `"createdAt"`;
+            const sortField = sortFieldMap[filters.sortBy] || `"createdAt"`;
 
             questions = await prisma.$queryRawUnsafe(`
                 SELECT *,
@@ -269,9 +228,7 @@ async function ListQuestionsController(req: Request, res: Response) {
                 OFFSET ${skip}
             `);
 
-            const countResult = await prisma.$queryRawUnsafe<
-                [{ count: bigint }]
-            >(`
+            const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(`
                 SELECT COUNT(*)::bigint as count
                 FROM "QuestionMeta"
                 ${whereSQL}
@@ -310,15 +267,10 @@ async function ListQuestionsController(req: Request, res: Response) {
 
         sendResponse(
             res,
-            makeResponse(
-                true,
-                200,
-                "Questions fetched successfully",
-                {
-                    questions,
-                    pagination,
-                }
-            )
+            makeResponse(true, 200, "Questions fetched successfully", {
+                questions,
+                pagination,
+            }),
         );
     } catch (error) {
         handleError(res, error);
@@ -335,7 +287,9 @@ Schema:
   {
     "question": "string",
 
-    "type": ${Object.values(QuestionType).map((t) => `"${t}"`).join(" | ")},
+    "type": ${Object.values(QuestionType)
+        .map(t => `"${t}"`)
+        .join(" | ")},
 
     "options": [
       {
@@ -365,10 +319,7 @@ Important:
 - Never hallucinate answers
 `;
 
-export async function inferQuestionsController(
-    req: Request,
-    res: Response
-) {
+export async function inferQuestionsController(req: Request, res: Response) {
     try {
         const files = req.files;
 
@@ -380,7 +331,7 @@ export async function inferQuestionsController(
         const mimeType = (await fileTypeFromBuffer(buffer))?.mime;
         if (!mimeType) throw new InvalidInputError("Unable to detect file type");
         const gemini = new GoogleGenAI({
-            apiKey: getConfig().geminiApiKey
+            apiKey: getConfig().geminiApiKey,
         });
         const response = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
@@ -398,8 +349,7 @@ export async function inferQuestionsController(
         });
         const parsed = InferQuestionsSchema.parse(aiJsonParse(response.text ?? ""));
         return sendResponse(res, makeResponse(true, 200, "Questions inferred successfully", parsed));
-    }
-    catch (error) {
+    } catch (error) {
         handleError(res, error);
     }
 }
