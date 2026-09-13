@@ -1,25 +1,69 @@
 "use client";
 
 import { AppLayout } from "@/components/layouts/app-layout";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-import { useClerk } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
-import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+
+const notificationPreferencesKey = "quizlm-notification-preferences";
+
 export default function SettingsPage() {
-    const { signOut } = useClerk();
     const { resolvedTheme, setTheme } = useTheme();
+    const [emailNotifications, setEmailNotifications] = useState(false);
+    const [pushNotifications, setPushNotifications] = useState(false);
     const mounted = useSyncExternalStore(
         () => () => {},
         () => true,
         () => false,
     );
+
+    useEffect(() => {
+        const savedPreferences = localStorage.getItem(notificationPreferencesKey);
+
+        if (savedPreferences) {
+            const preferences = JSON.parse(savedPreferences) as {
+                emailNotifications?: boolean;
+                pushNotifications?: boolean;
+            };
+
+            setEmailNotifications(preferences.emailNotifications ?? false);
+            setPushNotifications(
+                preferences.pushNotifications === true &&
+                    typeof Notification !== "undefined" &&
+                    Notification.permission === "granted",
+            );
+        }
+    }, []);
+
+    const saveNotificationPreferences = (preferences: {
+        emailNotifications?: boolean;
+        pushNotifications?: boolean;
+    }) => {
+        const currentPreferences = JSON.parse(localStorage.getItem(notificationPreferencesKey) ?? "{}");
+
+        localStorage.setItem(notificationPreferencesKey, JSON.stringify({ ...currentPreferences, ...preferences }));
+    };
+
+    const handlePushNotificationsChange = async (checked: boolean) => {
+        if (!checked) {
+            setPushNotifications(false);
+            saveNotificationPreferences({ pushNotifications: false });
+            return;
+        }
+
+        if (typeof Notification === "undefined") {
+            return;
+        }
+
+        const permission =
+            Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
+        const enabled = permission === "granted";
+
+        setPushNotifications(enabled);
+        saveNotificationPreferences({ pushNotifications: enabled });
+    };
 
     return (
         <AppLayout>
@@ -30,41 +74,6 @@ export default function SettingsPage() {
 
                     <p className="text-muted-foreground mt-2">Manage your account and application preferences.</p>
                 </div>
-
-                {/* Profile Settings */}
-                <Card className="p-6 space-y-6">
-                    <div>
-                        <h2 className="text-xl font-semibold">Profile Settings</h2>
-
-                        <p className="text-sm text-muted-foreground mt-1">Update your personal information.</p>
-                    </div>
-
-                    <Separator />
-
-                    <div className="grid gap-5">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">Full Name</Label>
-
-                            <Input id="name" placeholder="Enter your full name" />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">Email Address</Label>
-
-                            <Input id="email" type="email" placeholder="Enter your email" />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="username">Username</Label>
-
-                            <Input id="username" placeholder="Enter your username" />
-                        </div>
-
-                        <div className="flex justify-end">
-                            <Button>Save Changes</Button>
-                        </div>
-                    </div>
-                </Card>
 
                 {/* Notification Settings */}
                 <Card className="p-6 space-y-6">
@@ -84,7 +93,14 @@ export default function SettingsPage() {
                                 <p className="text-sm text-muted-foreground">Receive updates via email.</p>
                             </div>
 
-                            <Switch />
+                            <Switch
+                                checked={emailNotifications}
+                                onCheckedChange={checked => {
+                                    setEmailNotifications(checked);
+                                    saveNotificationPreferences({ emailNotifications: checked });
+                                }}
+                                aria-label="Toggle email notifications"
+                            />
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -94,7 +110,11 @@ export default function SettingsPage() {
                                 <p className="text-sm text-muted-foreground">Receive browser notifications.</p>
                             </div>
 
-                            <Switch />
+                            <Switch
+                                checked={pushNotifications}
+                                onCheckedChange={handlePushNotificationsChange}
+                                aria-label="Toggle push notifications"
+                            />
                         </div>
                     </div>
                 </Card>
@@ -121,26 +141,6 @@ export default function SettingsPage() {
                             onCheckedChange={checked => setTheme(checked ? "dark" : "light")}
                             aria-label="Toggle dark mode"
                         />
-                    </div>
-                </Card>
-
-                {/* Security Settings */}
-                <Card className="p-6 space-y-6">
-                    <div>
-                        <h2 className="text-xl font-semibold">Security</h2>
-
-                        <p className="text-sm text-muted-foreground mt-1">Manage your account security settings.</p>
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <Link href="/auth#sign-in" className={cn(buttonVariants({ variant: "outline" }))}>
-                            Change Password
-                        </Link>
-                        <Button variant="outline" onClick={() => signOut({ redirectUrl: "/auth#sign-in" })}>
-                            Logout
-                        </Button>
                     </div>
                 </Card>
             </div>
